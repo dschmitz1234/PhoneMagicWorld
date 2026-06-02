@@ -12,7 +12,11 @@ export async function POST(req: NextRequest) {
     params[key] = value as string;
   });
 
-  if (!validateTwilioSignature(signature, url, params)) {
+  const valid = validateTwilioSignature(signature, url, params);
+  console.log('[twilio/incoming] url:', url, '| sig:', signature.slice(0, 20) + '...', '| valid:', valid, '| BASE_URL env:', process.env.BASE_URL ?? '(unset)');
+
+  if (!valid) {
+    console.log('[twilio/incoming] 403 Forbidden — signature mismatch');
     return new NextResponse('Forbidden', { status: 403 });
   }
 
