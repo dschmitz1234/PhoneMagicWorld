@@ -57,12 +57,12 @@ export default async function RoomPage({ params }: RoomPageProps) {
 
   // Flatten joined sender display_name into memo object
   const voiceMemos: VoiceMemo[] = (memosRes.data ?? []).map((row: Record<string, unknown>) => {
-    const sender = row.sender as { display_name?: string | null } | null;
+    const { sender, ...rest } = row;
+    const senderObj = sender as { display_name?: string | null } | null;
     return {
-      ...row,
-      sender: undefined,
-      sender_display_name: sender?.display_name ?? null,
-    } as VoiceMemo;
+      ...rest,
+      sender_display_name: senderObj?.display_name ?? null,
+    } as unknown as VoiceMemo;
   });
 
   const roomSlug = room as RoomSlug;
