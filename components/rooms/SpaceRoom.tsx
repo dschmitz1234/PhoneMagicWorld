@@ -157,7 +157,7 @@ export default function SpaceRoom({ roomId, initialCreatures, initialLetters, in
           <VoiceMemoOrb key={memo.id} memo={memo} />
         ))}
 
-        {/* Room label */}}
+        {/* Room label */}
         <div className="absolute top-6 left-1/2 -translate-x-1/2 pointer-events-none">
           <h2 className="text-white/50 text-sm tracking-[0.4em] uppercase" style={{ fontFamily: "'Orbitron', sans-serif" }}>
             The Space Room

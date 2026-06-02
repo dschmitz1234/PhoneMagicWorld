@@ -240,7 +240,7 @@ export default function OceanRoom({ roomId, initialCreatures, initialLetters, in
           <VoiceMemoOrb key={memo.id} memo={memo} />
         ))}
 
-        {/* Room label */}}
+        {/* Room label */}
         <div className="absolute top-6 left-1/2 -translate-x-1/2 pointer-events-none">
           <h2 className="text-white/60 text-sm tracking-[0.3em] uppercase" style={{ fontFamily: "'Playfair Display', serif" }}>
             The Ocean Room
