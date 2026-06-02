@@ -19,12 +19,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
-import { Creature, MagicLetter } from '@/types';
+import { Creature, MagicLetter, VoiceMemo } from '@/types';
 import CreatureSprite from '@/components/creatures/CreatureSprite';
 import CreatureTooltip from '@/components/layout/CreatureTooltip';
 import { NarrationToastQueue } from '@/components/ui/NarrationToast';
 import RoomShell from '@/components/layout/RoomShell';
 import MagicOracle from '@/components/ui/MagicOracle';
+import VoiceMemoOrb from '@/components/ui/VoiceMemoOrb';
 
 // Lazy-load tsParticles to keep initial bundle small
 import type { Engine } from '@tsparticles/engine';
@@ -35,6 +36,7 @@ interface ForestRoomProps {
   roomId: string;
   initialCreatures: Creature[];
   initialLetters: MagicLetter[];
+  initialVoiceMemos: VoiceMemo[];
 }
 
 interface ToastItem {
@@ -47,9 +49,11 @@ export default function ForestRoom({
   roomId,
   initialCreatures,
   initialLetters,
+  initialVoiceMemos,
 }: ForestRoomProps) {
   const [creatures, setCreatures] = useState<Creature[]>(initialCreatures);
   const [letters, setLetters] = useState<MagicLetter[]>(initialLetters);
+  const [voiceMemos, setVoiceMemos] = useState<VoiceMemo[]>(initialVoiceMemos);
   const [selectedCreature, setSelectedCreature] = useState<Creature | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -117,6 +121,14 @@ export default function ForestRoom({
         (payload) => {
           setLetters((prev) => [...prev, payload.new as MagicLetter]);
           addToast('A new letter has appeared in the forest...');
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'voice_memos', filter: `room_slug=eq.forest` },
+        (payload) => {
+          setVoiceMemos((prev) => [payload.new as VoiceMemo, ...prev]);
+          addToast('A magical voice message has arrived in the forest...');
         }
       )
       .subscribe();
@@ -352,6 +364,11 @@ export default function ForestRoom({
 
         {/* AI Oracle chat */}
         <MagicOracle room="forest" />
+
+        {/* Voice memo orbs */}
+        {voiceMemos.map((memo) => (
+          <VoiceMemoOrb key={memo.id} memo={memo} />
+        ))}
       </div>
     </RoomShell>
   );

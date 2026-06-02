@@ -107,6 +107,7 @@ export interface Family {
   family_name: string | null;
   phone_uk: string | null;
   phone_de: string | null;
+  display_name: string | null;
   created_at: string;
 }
 
@@ -145,4 +146,34 @@ export interface ClaudeInterpretation {
   };
   narration: string;
   real_world_prompt?: string;
+}
+
+export interface ConversationTurn {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
+export interface ConversationResponse {
+  spoken_reply: string;
+  intent: string | null;
+  action_payload: Record<string, unknown> | null;
+  conversation_complete: boolean;
+}
+
+export interface VoiceMemo {
+  id: string;
+  sender_family_id: string | null;
+  recipient_family_id: string;
+  room_slug: string;
+  audio_url: string;
+  duration_seconds: number | null;
+  transcript: string | null;
+  is_listened: boolean;
+  listened_at: string | null;
+  position_x: number;
+  position_y: number;
+  call_sid: string | null;
+  created_at: string;
+  // joined from sender family (optional)
+  sender_display_name?: string | null;
 }

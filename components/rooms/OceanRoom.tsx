@@ -11,13 +11,14 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
-import { Creature, MagicLetter } from '@/types';
+import { Creature, MagicLetter, VoiceMemo } from '@/types';
 import CreatureSprite from '@/components/creatures/CreatureSprite';
 import CreatureTooltip from '@/components/layout/CreatureTooltip';
 import { NarrationToastQueue } from '@/components/ui/NarrationToast';
 import RoomShell from '@/components/layout/RoomShell';
 import MagicOracle from '@/components/ui/MagicOracle';
 import MagicLetterComponent from '@/components/ui/MagicLetter';
+import VoiceMemoOrb from '@/components/ui/VoiceMemoOrb';
 
 import type { Engine } from '@tsparticles/engine';
 const ParticlesProvider = dynamic(() => import('@tsparticles/react').then((m) => ({ default: m.ParticlesProvider })), { ssr: false });
@@ -27,6 +28,7 @@ interface OceanRoomProps {
   roomId: string;
   initialCreatures: Creature[];
   initialLetters: MagicLetter[];
+  initialVoiceMemos: VoiceMemo[];
 }
 
 interface ToastItem {
@@ -35,9 +37,10 @@ interface ToastItem {
   realWorldPrompt?: string;
 }
 
-export default function OceanRoom({ roomId, initialCreatures, initialLetters }: OceanRoomProps) {
+export default function OceanRoom({ roomId, initialCreatures, initialLetters, initialVoiceMemos }: OceanRoomProps) {
   const [creatures, setCreatures] = useState<Creature[]>(initialCreatures);
   const [letters, setLetters] = useState<MagicLetter[]>(initialLetters);
+  const [voiceMemos, setVoiceMemos] = useState<VoiceMemo[]>(initialVoiceMemos);
   const [selectedCreature, setSelectedCreature] = useState<Creature | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const roomRef = useRef<HTMLDivElement>(null);
@@ -79,6 +82,11 @@ export default function OceanRoom({ roomId, initialCreatures, initialLetters }: 
         (payload) => {
           setLetters(prev => [...prev, payload.new as MagicLetter]);
           addToast('A message in a bottle has washed ashore...');
+        })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'voice_memos', filter: `room_slug=eq.ocean` },
+        (payload) => {
+          setVoiceMemos(prev => [payload.new as VoiceMemo, ...prev]);
+          addToast('A magical voice message has drifted into the Ocean Room...');
         })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -227,7 +235,12 @@ export default function OceanRoom({ roomId, initialCreatures, initialLetters }: 
         {/* AI Oracle chat */}
         <MagicOracle room="ocean" />
 
-        {/* Room label */}
+        {/* Voice memo orbs */}
+        {voiceMemos.map((memo) => (
+          <VoiceMemoOrb key={memo.id} memo={memo} />
+        ))}
+
+        {/* Room label */}}
         <div className="absolute top-6 left-1/2 -translate-x-1/2 pointer-events-none">
           <h2 className="text-white/60 text-sm tracking-[0.3em] uppercase" style={{ fontFamily: "'Playfair Display', serif" }}>
             The Ocean Room

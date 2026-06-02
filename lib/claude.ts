@@ -1,6 +1,6 @@
 import { generateText } from 'ai';
 import { getBestInterpretationModel } from '@/lib/ai';
-import { ClaudeInterpretation } from '@/types';
+import { ClaudeInterpretation, ConversationTurn, ConversationResponse } from '@/types';
 
 const SYSTEM_PROMPT_EN = `
 You are the gentle, wise narrator of a magical world for young teenagers aged 13.
@@ -111,5 +111,88 @@ export async function interpretTranscript(
     return JSON.parse(text) as ClaudeInterpretation;
   } catch {
     return FALLBACK_CREATURE;
+  }
+}
+
+// ─── Conversation mode ────────────────────────────────────────────────────────
+
+const CONVERSATION_SYSTEM_EN = `
+You are a calm, warm, wise narrator speaking to a 13-year-old child on a phone call inside a magical world.
+Keep every response to 1-2 short spoken sentences — this is a phone call, not a chat.
+Ask clarifying questions across multiple turns when details are missing; never guess.
+Only set action_payload when the intent is completely clear and all required details are known.
+Never set conversation_complete to true unless the child says goodbye, bye, thanks, or similar farewell.
+The magical world has four rooms: forest, ocean, space, castle.
+Available intents: create_creature, send_message, create_reminder, hide_object, record_voice_memo, check_messages.
+
+Respond ONLY with valid JSON — no markdown, no explanation:
+{
+  "spoken_reply": "One or two spoken sentences to say to the child.",
+  "intent": "create_creature | send_message | create_reminder | hide_object | record_voice_memo | check_messages | null",
+  "action_payload": null,
+  "conversation_complete": false
+}
+
+When intent is record_voice_memo and all details are known, set action_payload to:
+{
+  "target_type": "room | person",
+  "target_room": "forest | ocean | space | castle | null",
+  "target_display_name": "name string | null",
+  "prompt_to_speak": "What Twilio should say before the beep, e.g. I'll save this to your Forest Room. Go ahead after the tone."
+}
+If room or person is not specified for a voice memo, default to target_type=room, target_room=forest.
+`.trim();
+
+const CONVERSATION_SYSTEM_DE = `
+Du bist ein ruhiger, weiser Erzähler, der mit einem 13-jährigen Kind in einer magischen Welt telefoniert.
+Halte jede Antwort auf 1-2 kurze gesprochene Sätze — das ist ein Telefongespräch.
+Stelle klärende Fragen über mehrere Züge hinweg, wenn Details fehlen.
+Setze action_payload nur, wenn die Absicht vollständig klar ist.
+Antworte NUR mit gültigem JSON (gleiche Struktur wie der englische Prompt). Alle Texte auf Deutsch.
+`.trim();
+
+const CONVERSATION_FALLBACK: ConversationResponse = {
+  spoken_reply: 'Hmm, the magic is a little unclear right now. Could you try again?',
+  intent: null,
+  action_payload: null,
+  conversation_complete: false,
+};
+
+export async function chatConversation(
+  history: ConversationTurn[],
+  userMessage: string,
+  language: 'en' | 'de' = 'en',
+  familyId?: string | null
+): Promise<ConversationResponse> {
+  const systemPrompt = language === 'de' ? CONVERSATION_SYSTEM_DE : CONVERSATION_SYSTEM_EN;
+  const model = await getBestInterpretationModel();
+
+  // Build prompt from conversation history + new user message
+  const historyText = history
+    .map((t) => `${t.role === 'user' ? 'Child' : 'Narrator'}: ${t.text}`)
+    .join('\n');
+  const prompt = historyText
+    ? `${historyText}\nChild: ${userMessage}`
+    : `Child: ${userMessage}`;
+
+  const contextNote = familyId ? '' : '\n(This caller is anonymous — do not reference personal rooms or messages.)';
+
+  const { text } = await generateText({
+    model,
+    system: systemPrompt + contextNote,
+    prompt,
+    maxOutputTokens: 200,
+  });
+
+  try {
+    const parsed = JSON.parse(text) as ConversationResponse;
+    return {
+      spoken_reply: parsed.spoken_reply ?? CONVERSATION_FALLBACK.spoken_reply,
+      intent: parsed.intent ?? null,
+      action_payload: parsed.action_payload ?? null,
+      conversation_complete: parsed.conversation_complete ?? false,
+    };
+  } catch {
+    return CONVERSATION_FALLBACK;
   }
 }

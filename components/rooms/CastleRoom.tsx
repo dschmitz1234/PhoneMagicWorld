@@ -8,7 +8,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
-import { Creature, MagicLetter } from '@/types';
+import { Creature, MagicLetter, VoiceMemo } from '@/types';
+import VoiceMemoOrb from '@/components/ui/VoiceMemoOrb';
 import CreatureSprite from '@/components/creatures/CreatureSprite';
 import CreatureTooltip from '@/components/layout/CreatureTooltip';
 import { NarrationToastQueue } from '@/components/ui/NarrationToast';
@@ -64,6 +65,7 @@ interface CastleRoomProps {
   roomId: string;
   initialCreatures: Creature[];
   initialLetters: MagicLetter[];
+  initialVoiceMemos: VoiceMemo[];
 }
 
 interface ToastItem {
@@ -72,9 +74,10 @@ interface ToastItem {
   realWorldPrompt?: string;
 }
 
-export default function CastleRoom({ roomId, initialCreatures, initialLetters }: CastleRoomProps) {
+export default function CastleRoom({ roomId, initialCreatures, initialLetters, initialVoiceMemos }: CastleRoomProps) {
   const [creatures, setCreatures] = useState<Creature[]>(initialCreatures);
   const [letters, setLetters] = useState<MagicLetter[]>(initialLetters);
+  const [voiceMemos, setVoiceMemos] = useState<VoiceMemo[]>(initialVoiceMemos);
   const [selectedCreature, setSelectedCreature] = useState<Creature | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [ravenVisible, setRavenVisible] = useState(false);
@@ -146,6 +149,11 @@ export default function CastleRoom({ roomId, initialCreatures, initialLetters }:
         (payload) => {
           setLetters(prev => [...prev, payload.new as MagicLetter]);
           addToast('A sealed scroll appears on the stone table...');
+        })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'voice_memos', filter: `room_slug=eq.castle` },
+        (payload) => {
+          setVoiceMemos(prev => [payload.new as VoiceMemo, ...prev]);
+          addToast('A magical voice message has echoed through the Castle Room...');
         })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -343,6 +351,11 @@ export default function CastleRoom({ roomId, initialCreatures, initialLetters }:
 
         {/* AI Oracle chat */}
         <MagicOracle room="castle" />
+
+        {/* Voice memo orbs */}
+        {voiceMemos.map((memo) => (
+          <VoiceMemoOrb key={memo.id} memo={memo} />
+        ))}
 
         {/* Room label */}
         <div className="absolute top-6 left-1/2 -translate-x-1/2 pointer-events-none">

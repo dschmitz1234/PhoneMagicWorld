@@ -10,8 +10,14 @@ CREATE TABLE families (
   family_name   VARCHAR(100),
   phone_uk      VARCHAR(20),
   phone_de      VARCHAR(20),
+  display_name  VARCHAR(100) UNIQUE,    -- friendly name/nickname for caller ID, lowercase
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- To link a phone number to a family (admin only, run in Supabase SQL editor):
+-- UPDATE families SET phone_uk = '+447XXXXXXXXX', display_name = 'giggi'
+--   WHERE magic_code = 'MOON42';
+-- (Future: allow callers to self-register by entering magic code via DTMF keypad)
 
 -- ROOMS
 CREATE TABLE rooms (
@@ -119,6 +125,37 @@ CREATE TABLE hidden_objects (
   created_at       TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- CONVERSATIONS (live call state)
+CREATE TABLE conversations (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  call_sid       TEXT UNIQUE NOT NULL,
+  family_id      UUID REFERENCES families(id),       -- null = anonymous caller
+  language       VARCHAR(5) NOT NULL DEFAULT 'en',   -- 'en' | 'de'
+  history        JSONB NOT NULL DEFAULT '[]',        -- last 6 turns [{role, text}]
+  silence_count  INTEGER NOT NULL DEFAULT 0,
+  is_complete    BOOLEAN NOT NULL DEFAULT FALSE,
+  pending_action JSONB,                              -- last action_payload awaiting recording
+  created_at     TIMESTAMPTZ DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- VOICE MEMOS (person-to-person / person-to-room audio messages)
+CREATE TABLE voice_memos (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sender_family_id    UUID REFERENCES families(id),        -- null = anonymous caller
+  recipient_family_id UUID REFERENCES families(id) NOT NULL,
+  room_slug           VARCHAR(20) NOT NULL DEFAULT 'forest',
+  audio_url           TEXT NOT NULL,                       -- Supabase Storage public URL
+  duration_seconds    INTEGER,
+  transcript          TEXT,                                -- Whisper transcription (async, nullable)
+  is_listened         BOOLEAN NOT NULL DEFAULT FALSE,
+  listened_at         TIMESTAMPTZ,
+  position_x          DECIMAL(5,2) DEFAULT 50,
+  position_y          DECIMAL(5,2) DEFAULT 65,
+  call_sid            TEXT,
+  created_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ============================================================
 -- ENABLE REALTIME
 -- Run in Supabase Dashboard → Database → Replication
@@ -129,6 +166,7 @@ CREATE TABLE hidden_objects (
 -- ALTER PUBLICATION supabase_realtime ADD TABLE reminders;
 -- ALTER PUBLICATION supabase_realtime ADD TABLE hidden_objects;
 -- ALTER PUBLICATION supabase_realtime ADD TABLE room_events;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE voice_memos;
 
 -- ============================================================
 -- AI PROVIDER KEYS
